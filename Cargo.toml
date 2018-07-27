@@ -1,0 +1,6 @@
+[package]
+name = "uxas_attribute_message"
+version = "0.1.0"
+authors = ["Michal Podhradsky <mpodhradsky@galois.com>"]
+
+[dependencies]
