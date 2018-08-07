@@ -148,7 +148,7 @@ pub struct AddressedAttributedMessage {
 
 impl AddressedAttributedMessage {
     const DELIMITER: char = '$';
-    const CHUNKS_LEN: usize = 3;
+    //const CHUNKS_LEN: usize = 3;
 
     /// Default expected length of serialized address (somewhat arbitrary indeed)
     const DEFAULT_ADDR_SIZE: usize = 30;
@@ -166,8 +166,8 @@ impl AddressedAttributedMessage {
     }
 
     /// Return payload of the message
-    pub fn get_payload(&self) -> Option<Vec<u8>> {
-        None
+    pub fn get_payload(&self) -> &[u8] {
+        self.payload.as_slice()
     }
 
     /// Get a byte stream representation of the attributed message
@@ -185,22 +185,38 @@ impl AddressedAttributedMessage {
     /// Deserialize a message from a byte stream
     /// A typical vector looks like this:
     /// "afrl.cmasi.AirVehicleState$lmcp|afrl.cmasi.AirVehicleState||1|2$LMCPthisisthepayloadhere"
-    pub fn deserialize(data: Vec<u8>) -> Option<AddressedAttributedMessage> {
+    pub fn deserialize(mut data: Vec<u8>) -> Option<AddressedAttributedMessage> {
         let mut msg = AddressedAttributedMessage::default();
-        let chunks: Vec<_> = data.split(|b| *b == Self::DELIMITER as u8).collect();
-        // split into Address $ Attributes $ Payload
-        if chunks.len() != Self::CHUNKS_LEN {
-            println!("chunks = {:?}", chunks);
-            return None;
-        }
-        msg.address = chunks[0].to_vec();
-        match MessageAttributes::deserialize(chunks[1]) {
-            Some(attrs) => {
-                msg.attributes = attrs;
+
+        // Get address
+        for idx in 0..data.len() {
+            if data[idx] == Self::DELIMITER as u8 {
+                msg.address = data.drain(..idx).collect();
+                data.remove(0); // remove '$'
+                break;
             }
-            None => return None,
         }
-        msg.set_payload(chunks[2].to_vec());
+
+        // Get attributes
+        for idx in 0..data.len() {
+            if data[idx] == Self::DELIMITER as u8 {
+                let attributes: Vec<_> = data.drain(..idx).collect();
+                data.remove(0); // remove '$'
+                match MessageAttributes::deserialize(&attributes) {
+                    Some(attrs) => {
+                        println!("Got these attributes {}", attrs);
+                        msg.attributes = attrs;
+                        break;
+                    }
+                    None => {
+                        println!("no attributes");
+                        return None;
+                    }
+                }
+            }
+        }
+
+        msg.set_payload(data);
         Some(msg)
     }
 
@@ -252,7 +268,7 @@ mod test {
     use super::*;
 
     const TEST_DATA: &str =
-        "afrl.cmasi.AirVehicleState$lmcp|afrl.cmasi.AirVehicleState||1|2$LMCPthisisthepayloadhere";
+        "afrl.cmasi.AirVehicleState$lmcp|afrl.cmasi.AirVehicleState||1|2$LMCPthisisthepayloadhereblabla$sads$";
 
     #[test]
     fn test_serialize() {
@@ -262,7 +278,7 @@ mod test {
         msg.set_descriptor("afrl.cmasi.AirVehicleState");
         msg.set_sender_entity_id("1");
         msg.set_sender_service_id("2");
-        msg.set_payload("LMCPthisisthepayloadhere".as_bytes().to_vec());
+        msg.set_payload("LMCPthisisthepayloadhereblabla$sads$".as_bytes().to_vec());
         let s1 = msg.serialize();
         let s2 = TEST_DATA.to_string().as_bytes().to_vec();
         println!("s1={}", String::from_utf8(s1.clone()).unwrap());
