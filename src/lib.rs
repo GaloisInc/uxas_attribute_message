@@ -204,12 +204,10 @@ impl AddressedAttributedMessage {
                 data.remove(0); // remove '$'
                 match MessageAttributes::deserialize(&attributes) {
                     Some(attrs) => {
-                        println!("Got these attributes {}", attrs);
                         msg.attributes = attrs;
                         break;
                     }
                     None => {
-                        println!("no attributes");
                         return None;
                     }
                 }
@@ -258,7 +256,6 @@ impl fmt::Display for AddressedAttributedMessage {
         write!(f, "{}", String::from_utf8_lossy(&self.address))?;
         write!(f, "{}", Self::DELIMITER)?;
         write!(f, "{}", self.attributes)?;
-        write!(f, "{}", Self::DELIMITER)?;
         Ok(())
     }
 }
